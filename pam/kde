@@ -1,0 +1,33 @@
+#%PAM-1.0
+# SPDX-FileCopyrightText: 2026 KDE-FP-Patch contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Local override of /usr/lib/pam.d/kde (kscreenlocker's interactive password
+# stack).  Same as the shipped file, but does not include common-auth, because
+# Ubuntu's common-auth starts with pam_fprintd.
+#
+# kscreenlocker runs the password stack and the fingerprint stack (service
+# "kde-fingerprint") in parallel.  If the password stack also starts
+# pam_fprintd, both claim the same fprintd device at the same time: one of
+# them fails with "Device was already claimed" and pressing Enter can sit
+# waiting on the 10 s fingerprint timeout instead of checking the password.
+
+auth    requisite       pam_nologin.so
+auth    required        pam_succeed_if.so user != root quiet_success
+auth    [success=1 default=ignore] pam_unix.so nullok try_first_pass
+auth    requisite       pam_deny.so
+auth    required        pam_permit.so
+auth    optional        pam_cap.so
+auth    optional        pam_kwallet5.so
+
+@include common-account
+
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session required        pam_loginuid.so
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+session optional        pam_keyinit.so force revoke
+session required        pam_limits.so
+session required        pam_env.so readenv=1
+session required        pam_env.so readenv=1 envfile=/etc/default/locale
+@include common-session
+session optional        pam_kwallet5.so auto_start
+@include common-password

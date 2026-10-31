@@ -1,0 +1,33 @@
+#%PAM-1.0
+# SPDX-FileCopyrightText: 2026 KDE-FP-Patch contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Local override of /usr/lib/pam.d/kde-fingerprint (kscreenlocker's
+# non-interactive fingerprint stack).
+#
+# Deliberate differences from the shipped file:
+#  * no "auth optional pam_kwallet5.so": with no PAM_AUTHTOK it asks the PAM
+#    conversation for a password.  kscreenlocker cannot answer prompts from a
+#    non-interactive stack, so the whole stack blocks until the user presses
+#    Enter on the password field.  This is the "finger accepted but screen does
+#    not unlock" bug (LP #2172578).
+#  * pam_fprintd runs without a timeout and without a retry limit: the reader
+#    stays armed while the screen is locked and keeps accepting fingers, like
+#    a phone.  Use timeout=120 if you prefer a battery-friendlier setup.
+#  * no pam_kwallet5 in the session group either: without a password it cannot
+#    unlock the wallet anyway.
+
+auth    requisite       pam_nologin.so
+auth    required        pam_succeed_if.so user != root quiet_success
+auth    required        pam_fprintd.so max-tries=-1 timeout=-1
+
+@include common-account
+
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so close
+session required        pam_loginuid.so
+session [success=ok ignore=ignore module_unknown=ignore default=bad] pam_selinux.so open
+session optional        pam_keyinit.so force revoke
+session required        pam_limits.so
+session required        pam_env.so readenv=1
+session required        pam_env.so readenv=1 envfile=/etc/default/locale
+@include common-session
+@include common-password
