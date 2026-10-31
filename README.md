@@ -26,7 +26,7 @@ Tested on **Kubuntu 26.04** with **Plasma 6.6.5** (`libkscreenlocker6 6.6.5`),
 ## Install
 
 ```bash
-git clone <repo-url> KDE-FP-Patch
+git clone https://github.com/xiahe173/KDE-FP-Patch
 cd KDE-FP-Patch
 sudo ./install.sh              # PAM + lock-screen theme
 sudo ./install.sh --pam-only   # PAM + resume hook, no theme files
