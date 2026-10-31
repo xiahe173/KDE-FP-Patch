@@ -28,6 +28,7 @@ check "${HERE}/pam/kde-fingerprint" /etc/pam.d/kde-fingerprint
 for f in LockScreen.qml LockScreenUi.qml MainBlock.qml; do
     check "${HERE}/qml/${f}" "${QML_DIR}/${f}"
 done
+check "${HERE}/system-sleep/50-kde-fp-patch" /usr/lib/systemd/system-sleep/50-kde-fp-patch
 
 if [[ ${rc} -eq 0 ]]; then
     echo "All installed files match this repository."

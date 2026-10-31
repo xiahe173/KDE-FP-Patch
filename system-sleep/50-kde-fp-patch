@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 KDE-FP-Patch contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# systemd-sleep hook: restart fprintd after resume.
+#
+# While the lock screen is up, pam_fprintd keeps a verify running so the
+# sensor is always armed. If the machine suspends during that verify,
+# libfprint fails it with "Cannot run while suspended" and pam_fprintd's
+# ReleaseDevice then fails with "The device is still busy", leaving the
+# reader open inside fprintd. fprintd does not recover by itself, so the
+# fingerprint stack fails for the rest of the lock session and the lock
+# screen falls back to the password.
+#
+# Restarting fprintd closes the stale device. The lock screen's retry timer
+# then arms the reader again (pam/kde-fingerprint keeps retrying).
+case "$1" in
+    post)
+        /usr/bin/systemctl try-restart fprintd.service 2>/dev/null || true
+        ;;
+esac

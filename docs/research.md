@@ -250,6 +250,29 @@ the lock becomes effective — no mouse, no key.
 Net behaviour: lock → "Touch the fingerprint sensor" → touch → unlock, with
 live messages. Password only after 3 failures or one click.
 
+### Suspend/resume
+
+Because `timeout=-1` keeps a verify running for the whole lock session, a
+suspend during that verify hits a libfprint/fprintd bug:
+
+```
+18:24:22 fprintd: Device reported an error during verify: Cannot run while suspended.
+18:24:22 kscreenlocker_greet: pam_fprintd(kde-fingerprint:auth):
+         ReleaseDevice failed: Release failed with error: The device is still
+         busy with another operation, please try again later.
+```
+
+After resume the device is left open inside fprintd; every further verify
+fails with `The device has already been opened!`, so the fingerprint
+authenticator stays unavailable and the lock screen shows only the password.
+Opening System Settings / `fprintd-verify` fails the same way. The device is
+released only when the greeter exits (i.e. after a password unlock).
+
+`system-sleep/50-kde-fp-patch` (installed to
+`/usr/lib/systemd/system-sleep/`) restarts `fprintd` on resume, which closes
+the stale device; `LockScreenUi.qml`'s retry timer then re-arms the reader.
+Manual recovery without logging out: `sudo systemctl restart fprintd`.
+
 ---
 
 ## 5. Install & test
@@ -364,6 +387,8 @@ first real lock/unlock is the remaining test.
 │   ├── LockScreen.qml    # declares "locked", starts auth at lock
 │   ├── LockScreenUi.qml  # status messages, failure counter, re-arm, idle hint
 │   └── MainBlock.qml     # hides password until needed, prompt, "Use password"
+├── system-sleep/
+│   └── 50-kde-fp-patch   # restart fprintd on resume
 └── docs/
     └── research.md       # this document
 ```

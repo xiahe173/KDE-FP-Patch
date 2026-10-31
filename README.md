@@ -20,6 +20,8 @@ Tested on **Kubuntu 26.04** with **Plasma 6.6.5** (`libkscreenlocker6 6.6.5`),
 - Pressing Enter starts a 10 s fingerprint attempt (from `common-auth`) before
   the password is even checked.
 - The password field is always visible, even when the reader is working.
+- Suspending while locked leaves fprintd's device open (`ReleaseDevice
+  failed: ... still busy`), so the rest of that lock session has no fingerprint.
 
 ## Install
 
@@ -27,7 +29,7 @@ Tested on **Kubuntu 26.04** with **Plasma 6.6.5** (`libkscreenlocker6 6.6.5`),
 git clone <repo-url> KDE-FP-Patch
 cd KDE-FP-Patch
 sudo ./install.sh              # PAM + lock-screen theme
-sudo ./install.sh --pam-only   # PAM only, no theme files
+sudo ./install.sh --pam-only   # PAM + resume hook, no theme files
 ```
 
 A timestamped backup of every replaced file goes to
@@ -56,6 +58,7 @@ forces a `plasma-desktop-data` reinstall instead.
 | `install.sh` | root installer (`--pam-only` supported) |
 | `restore.sh` | restores the newest backup |
 | `check.sh` | compares installed files with this repository |
+| `system-sleep/50-kde-fp-patch` | restarts fprintd on resume to clear a device left open by suspend |
 | `pam/kde` | lock-screen password stack, password-only (no `pam_fprintd`) |
 | `pam/kde-fingerprint` | fingerprint stack: no `pam_kwallet5`, unlimited retries/timeout |
 | `qml/LockScreen.qml` | starts authentication when the lock becomes effective |
@@ -72,6 +75,13 @@ forces a `plasma-desktop-data` reinstall instead.
 - `pam/kde-fingerprint` uses `max-tries=-1 timeout=-1` so the sensor stays
   armed while locked. This costs a little battery and keeps the reader claimed
   while locked; change the line to `timeout=120` if you prefer a bound.
+- **Suspend/resume:** while locked, the sensor is continuously verifying. If
+  the machine suspends during a verify, fprintd 1.94.5 reports `Cannot run
+  while suspended`, fails to release the device, and the reader stays open
+  until the greeter exits — the lock screen then only offers the password.
+  `install.sh` installs `/usr/lib/systemd/system-sleep/50-kde-fp-patch`, which
+  restarts fprintd after resume; the lock screen re-arms automatically. To
+  recover by hand: `sudo systemctl restart fprintd`.
 - `plasma-desktop-data` upgrades overwrite the three QML files — re-run
   `install.sh`. The `/etc/pam.d` overrides survive upgrades.
 - Plasma 6.8 fixes the timeout/re-arm bug (KDE #469951) upstream; this

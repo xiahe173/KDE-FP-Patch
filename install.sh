@@ -9,6 +9,7 @@ VERSION="1.0.0"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QML_DIR="/usr/share/plasma/shells/org.kde.plasma.desktop/contents/lockscreen"
 PAM_DIR="/etc/pam.d"
+SLEEP_HOOK_DIR="/usr/lib/systemd/system-sleep"
 BK_ROOT="/var/backups/kscreenlocker-fingerprint-ux"
 
 usage() {
@@ -18,11 +19,12 @@ KDE-FP-Patch ${VERSION} - fingerprint unlock for the Plasma 6.6 lock screen
 Usage: sudo ./install.sh [--pam-only]
 
   (no option)   install the PAM fix and the lock-screen theme
-  --pam-only    install only the /etc/pam.d overrides
+  --pam-only    install the PAM overrides and resume hook only
   -h, --help    show this help and exit
 
 Files replaced: ${PAM_DIR}/{kde,kde-fingerprint}
                 ${QML_DIR}/{LockScreen,LockScreenUi,MainBlock}.qml
+                ${SLEEP_HOOK_DIR}/50-kde-fp-patch
 
 Backup:   ${BK_ROOT}/<timestamp>/
 Rollback: sudo ./restore.sh
@@ -80,6 +82,14 @@ backup "${PAM_DIR}/kde-fingerprint"
 install -m 0644 "${HERE}/pam/kde" "${PAM_DIR}/kde"
 install -m 0644 "${HERE}/pam/kde-fingerprint" "${PAM_DIR}/kde-fingerprint"
 echo "installed ${PAM_DIR}/kde and ${PAM_DIR}/kde-fingerprint"
+
+if [[ -d "${SLEEP_HOOK_DIR}" ]]; then
+    backup "${SLEEP_HOOK_DIR}/50-kde-fp-patch"
+    install -m 0755 "${HERE}/system-sleep/50-kde-fp-patch" "${SLEEP_HOOK_DIR}/50-kde-fp-patch"
+    echo "installed ${SLEEP_HOOK_DIR}/50-kde-fp-patch"
+else
+    echo "WARNING: ${SLEEP_HOOK_DIR} not found; suspend recovery hook not installed" >&2
+fi
 
 if [[ "${MODE}" == "all" ]]; then
     for f in LockScreen.qml LockScreenUi.qml MainBlock.qml; do

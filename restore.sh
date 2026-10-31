@@ -60,6 +60,7 @@ if [[ -n "${BK}" ]]; then
     echo "Using backup ${BK}"
     restore_or_remove "etc/pam.d/kde"
     restore_or_remove "etc/pam.d/kde-fingerprint"
+    restore_or_remove "usr/lib/systemd/system-sleep/50-kde-fp-patch"
     for f in LockScreen.qml LockScreenUi.qml MainBlock.qml; do
         if [[ -e "${BK}${QML_REL}/${f}" ]]; then
             install -D -m 0644 "${BK}${QML_REL}/${f}" "/${QML_REL}/${f}"
@@ -73,7 +74,8 @@ fi
 # No backup. Only offer the destructive fallback if something is installed.
 found=no
 for f in /etc/pam.d/kde /etc/pam.d/kde-fingerprint \
-         "/${QML_REL}/LockScreen.qml" "/${QML_REL}/LockScreenUi.qml" "/${QML_REL}/MainBlock.qml"; do
+         "/${QML_REL}/LockScreen.qml" "/${QML_REL}/LockScreenUi.qml" "/${QML_REL}/MainBlock.qml" \
+         /usr/lib/systemd/system-sleep/50-kde-fp-patch; do
     [[ -e "${f}" ]] && found=yes
 done
 if [[ "${found}" == "no" ]]; then
@@ -100,6 +102,7 @@ case "${answer}" in
     y|Y|yes|YES)
         echo "Removing /etc/pam.d overrides and reinstalling plasma-desktop-data..."
         rm -f /etc/pam.d/kde /etc/pam.d/kde-fingerprint
+        rm -f /usr/lib/systemd/system-sleep/50-kde-fp-patch
         apt-get install --reinstall -y plasma-desktop-data
         echo "Done. Lock the screen once to confirm the stock behaviour is back."
         ;;
