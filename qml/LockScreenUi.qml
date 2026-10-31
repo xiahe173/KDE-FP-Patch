@@ -55,9 +55,11 @@ Item {
                 mainBlock.forceActiveFocus();
             }
         } else if (!available && fingerprintWasAvailable) {
+            // kscreenlocker drops Fingerprint from authenticatorTypes as soon
+            // as a verify returns, even when the reader is only re-arming.
+            // Show the password meanwhile, but do not treat it as a choice.
             fingerprintStatus = i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "Fingerprint reader unavailable. Use your password.");
             mainBlock.passwordVisible = true;
-            passwordRequested = true;
         }
         fingerprintWasAvailable = available;
     }
@@ -82,7 +84,11 @@ Item {
                 // The reader timed out, was unplugged, or the PAM conversation
                 // ended. kscreenlocker 6.6 does not re-arm it by itself, so do
                 // it here and let the user fall back to the password.
+                if (passwordRequested) {
+                    return;
+                }
                 if (fingerprintRestarts >= 5) {
+                    passwordRequested = true;
                     fingerprintStatus = i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:status", "Fingerprint reader unavailable. Use your password.");
                     mainBlock.passwordVisible = true;
                 } else {

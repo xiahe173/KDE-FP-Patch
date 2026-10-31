@@ -18,7 +18,14 @@
 
 auth    requisite       pam_nologin.so
 auth    required        pam_succeed_if.so user != root quiet_success
-auth    required        pam_fprintd.so max-tries=-1 timeout=-1
+# A failed/timed-out/aborted fprintd verify must not return
+# PAM_AUTHINFO_UNAVAIL: kscreenlocker treats that as "no fingerprint
+# authenticator" and disables it for the rest of the lock session (its
+# PamWorker::m_unavailable is never reset).  Ignore the module result here
+# and let pam_deny turn it into PAM_AUTH_ERR, which kscreenlocker reports as
+# an ordinary failure; the greeter then re-arms the reader.
+auth    [success=done default=ignore] pam_fprintd.so max-tries=-1 timeout=-1
+auth    required        pam_deny.so
 
 @include common-account
 

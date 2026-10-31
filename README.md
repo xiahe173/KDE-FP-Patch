@@ -21,7 +21,9 @@ Tested on **Kubuntu 26.04** with **Plasma 6.6.5** (`libkscreenlocker6 6.6.5`),
   the password is even checked.
 - The password field is always visible, even when the reader is working.
 - Suspending while locked leaves fprintd's device open (`ReleaseDevice
-  failed: ... still busy`), so the rest of that lock session has no fingerprint.
+  failed: ... still busy`). kscreenlocker used to then disable the fingerprint
+  authenticator for the rest of the lock session (`PAM_AUTHINFO_UNAVAIL`), so
+  only the password was offered.
 
 ## Install
 
@@ -78,10 +80,17 @@ forces a `plasma-desktop-data` reinstall instead.
 - **Suspend/resume:** while locked, the sensor is continuously verifying. If
   the machine suspends during a verify, fprintd 1.94.5 reports `Cannot run
   while suspended`, fails to release the device, and the reader stays open
-  until the greeter exits — the lock screen then only offers the password.
-  `install.sh` installs `/usr/lib/systemd/system-sleep/50-kde-fp-patch`, which
-  restarts fprintd after resume; the lock screen re-arms automatically. To
-  recover by hand: `sudo systemctl restart fprintd`.
+  until the greeter exits. `install.sh` installs
+  `/usr/lib/systemd/system-sleep/50-kde-fp-patch`, which restarts fprintd after
+  resume, and `pam/kde-fingerprint` returns `PAM_AUTH_ERR` (not
+  `PAM_AUTHINFO_UNAVAIL`) for failed verifies. kscreenlocker then keeps the
+  fingerprint authenticator and the lock screen re-arms it; the password shown
+  during the gap is hidden again once the reader is back. To recover by hand:
+  `sudo systemctl restart fprintd`.
+- While the lock screen is armed it owns the reader, so `fprintd-verify` or
+  System Settings fingerprint setup will report `The device has already been
+  opened!` until you unlock. That is expected; the resume hook only clears the
+  stuck device left behind by a suspend.
 - `plasma-desktop-data` upgrades overwrite the three QML files — re-run
   `install.sh`. The `/etc/pam.d` overrides survive upgrades.
 - Plasma 6.8 fixes the timeout/re-arm bug (KDE #469951) upstream; this

@@ -263,14 +263,39 @@ suspend during that verify hits a libfprint/fprintd bug:
 ```
 
 After resume the device is left open inside fprintd; every further verify
-fails with `The device has already been opened!`, so the fingerprint
-authenticator stays unavailable and the lock screen shows only the password.
-Opening System Settings / `fprintd-verify` fails the same way. The device is
-released only when the greeter exits (i.e. after a password unlock).
+fails with `The device has already been opened!`. The device is released only
+when the greeter exits (i.e. after a password unlock).
 
-`system-sleep/50-kde-fp-patch` (installed to
-`/usr/lib/systemd/system-sleep/`) restarts `fprintd` on resume, which closes
-the stale device; `LockScreenUi.qml`'s retry timer then re-arms the reader.
+There is a second problem here: kscreenlocker's `PamWorker` sets
+`m_unavailable = true` when `pam_authenticate()` returns
+`PAM_AUTHINFO_UNAVAIL` and never clears it. `authenticatorTypes` then loses
+`Fingerprint`, so the theme cannot re-arm the reader — it can only offer the
+password for the rest of the lock session.
+
+Both parts are addressed:
+
+* `pam/kde-fingerprint` treats `pam_fprintd` as
+  `[success=done default=ignore]` and ends with `auth required pam_deny.so`.
+  A failed/aborted verify therefore returns `PAM_AUTH_ERR`, not
+  `PAM_AUTHINFO_UNAVAIL`; kscreenlocker reports it as an ordinary failure and
+  keeps the authenticator available.
+* `system-sleep/50-kde-fp-patch` (installed to
+  `/usr/lib/systemd/system-sleep/`) restarts `fprintd` on resume, closing the
+  stale device.
+
+`LockScreenUi.qml` reacts to the failure by restarting authentication; the
+password it shows in the meantime is hidden again when the reader returns,
+unless the user asked for the password. Verified in a headless greeter by
+restarting fprintd mid-verify:
+
+```
+[PAM worker kde-fingerprint] Authentication done, result code: 7 (Authentication failure)
+PamAuthenticators: Non-interactive authenticator kde-fingerprint failed
+PamAuthenticators: stopping authenticators
+PamAuthenticators: starting authenticators
+[PAM worker kde-fingerprint] Info message: Place your right index finger ...
+```
+
 Manual recovery without logging out: `sudo systemctl restart fprintd`.
 
 ---
